@@ -111,3 +111,13 @@ func (c *Config) Print() {
 
 	fmt.Printf("%+v\n", inspected)
 }
+
+func (s Symbols) GetAllSymbols() []string {
+	r := make([]string, 0)
+
+	for i := range s {
+		r = append(r, string(s[i]))
+	}
+
+	return r
+}
