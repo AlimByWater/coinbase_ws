@@ -34,18 +34,22 @@ func main() {
 	}
 	defer db.Close()
 
-	wsConn, err := parser.GetWSConnection()
+	wsConn, err := parser.GetWsConnection()
 	if err != nil {
 		log.Fatalf("failed to get ws connection: %v", err)
 	}
-	parser := parser.NewParser(wsConn)
-	defer parser.CloseWS()
+
+	parser := parser.Parser{
+		WsConn: wsConn,
+		DB:     &repository.MySql{DB: db},
+	}
+	defer parser.CloseWsConnection()
 
 	if err := parser.Subscribe(cfg.Symbols); err != nil {
 		log.Fatalf("%v", err)
 	}
 
-	if err := parser.PrintLog(); err != nil {
+	if err := parser.Start(); err != nil {
 		log.Fatalf("%v", err)
 	}
 

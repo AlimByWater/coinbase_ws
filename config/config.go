@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/AlimByWater/coinbase_ws/proto"
@@ -74,8 +75,14 @@ func Parse(configPath, symbols string) (*Config, error) {
 	// Parse the file
 	viper.SetConfigFile(configPath)
 	if err := viper.ReadInConfig(); err != nil {
-		return nil, errors.Wrap(err, "failed to read the config file")
+		dir, errIn := os.Getwd()
+		if errIn != nil {
+			errors.Wrap(err, errIn.Error())
+		}
+		return nil, errors.Wrap(err, "failed to read the config file. Now in "+dir)
 	}
+
+	bindEnvVars()
 
 	// Unmarshal the config
 	var cfg Config
@@ -83,6 +90,7 @@ func Parse(configPath, symbols string) (*Config, error) {
 		return nil, errors.Wrap(err, "failed to unmarshal the configuration")
 	}
 
+	cfg.Database.Password = viper.GetString("password")
 	cfg.Symbols.Parse(symbols)
 
 	// Validate the provided configuration
@@ -120,4 +128,15 @@ func (s Symbols) GetAllSymbols() []string {
 	}
 
 	return r
+}
+
+const (
+	envPrevix = "parser"
+)
+
+func bindEnvVars() {
+	viper.SetEnvPrefix(envPrevix)
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+	viper.AutomaticEnv()
 }

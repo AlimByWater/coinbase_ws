@@ -1,33 +1,33 @@
 package parser
 
 import (
-	"log"
-
 	"github.com/AlimByWater/coinbase_ws/config"
 	"github.com/AlimByWater/coinbase_ws/repository"
 	ws "github.com/gorilla/websocket"
+	"github.com/pkg/errors"
 	coinbasepro "github.com/preichenberger/go-coinbasepro"
 )
 
 type Parser struct {
-	wsConn *ws.Conn
+	WsConn *ws.Conn
 	DB     repository.Repository
 }
 
-func NewParser(wsConn *ws.Conn) *Parser {
-	return &Parser{
-		wsConn: wsConn,
-	}
-}
+// func NewParser(WsConn *ws.Conn, db *repository.Repository) *Parser {
+// 	return &Parser{
+// 		WsConn: WsConn,
+// 		DB:     db,
+// 	}
+// }
 
-func GetWSConnection() (*ws.Conn, error) {
+func GetWsConnection() (*ws.Conn, error) {
 	var d ws.Dialer
-	wsConn, _, err := d.Dial("wss://ws-feed.pro.coinbase.com", nil)
+	WsConn, _, err := d.Dial("wss://ws-feed.pro.coinbase.com", nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return wsConn, nil
+	return WsConn, nil
 }
 
 func (p *Parser) Subscribe(symbols config.Symbols) error {
@@ -41,21 +41,38 @@ func (p *Parser) Subscribe(symbols config.Symbols) error {
 		},
 	}
 
-	err := p.wsConn.WriteJSON(subscribe)
+	err := p.WsConn.WriteJSON(subscribe)
 	return err
 }
 
-func (p *Parser) PrintLog() error {
-	for {
-		message := coinbasepro.Message{}
-		if err := p.wsConn.ReadJSON(&message); err != nil {
-			return err
-		}
+func (p *Parser) Start() error {
+	errCh := make(chan error)
+	msgCh := make(chan *coinbasepro.Message)
 
-		log.Printf("%s: BID %s", message.ProductId, message.BestBid)
+	for {
+		select {
+		case err := <-errCh:
+			return err
+		default:
+			p.ReadNext(msgCh, errCh)
+		}
 	}
 }
 
-func (p *Parser) CloseWS() error {
-	return p.wsConn.Close()
+func (p *Parser) ReadNext(msgCh chan *coinbasepro.Message, errCh chan error) {
+	message := &coinbasepro.Message{}
+	if err := p.WsConn.ReadJSON(message); err != nil {
+		errCh <- errors.Wrap(err, "error reading json")
+		return
+	}
+
+	if message.ProductId == "" {
+		return
+	}
+
+	p.InsertNewTick(message, errCh)
+}
+
+func (p *Parser) CloseWsConnection() error {
+	return p.WsConn.Close()
 }

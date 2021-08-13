@@ -1,0 +1,5 @@
+[Database]
+Host = "remotemysql.com"
+User = "mNmAviOMbu"
+Port = 3306
+Db = "mNmAviOMbu"

@@ -13,32 +13,27 @@ var (
 	queryTimeout = 30 * time.Second
 )
 
-type MySqlClient interface {
-	GetConnection() *sqlx.DB
-	Close() error
+type Repository interface {
+	TicksRepository
 }
 
 type MySql struct {
 	DB *sqlx.DB
 }
 
-type Repository interface {
-	TicksRepository
-}
-
-func Connect(cfg *config.Config) (MySqlClient, error) {
+func Connect(cfg *config.Config) (*sqlx.DB, error) {
 	db, err := sqlx.Connect("mysql", GetConnectionString(*cfg))
 	if err != nil {
 		return nil, err
 	}
 
+	db.SetConnMaxLifetime(queryTimeout)
+
 	if err := db.Ping(); err != nil {
 		return nil, err
 	}
 
-	return &MySql{
-		DB: db,
-	}, nil
+	return db, err
 }
 
 // GetPgConnectionOptions is for retriving pg.Options from configs
